@@ -1,0 +1,46 @@
+<html>
+<head>
+    <meta charset='utf-8'/>
+    <script src="kalina.js"></script>
+</head>
+<body>
+<div id="d0"></div>
+<hr/>
+<div id="d1"></div>
+<hr/>
+<div id="d2"></div>
+<hr/>
+<div id="d3"></div>
+<hr/>
+<div id="d4"></div>
+   <script>
+    var k,e,d;
+    try{
+        k= new Kalina(256,512);
+    }
+    catch(err){
+        window.d0.innerHTML = err;
+    }
+    k.setKeyHex("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F303132333435363738393A3B3C3D3E3F");
+    //k.showRoundKeys();
+    
+    var str='<div style="width:300px;border:1px solid red;background-color:#ffeeee;"><table border="1" cellspacing="0" style="margin:20px;"><tr><th>Таємний параметр</th><th>Значення</th></tr><tr><td>3</td><td>Таємно</td></tr><tr><td>2</td><td>Цілком таємно</td></tr><tr><td>1</td><td>Особливої важливості</td></tr>	</table></div>';
+    
+    
+    var s=str;//'Таємне повідомлення $100';//"Особливої - важливості";//"ї";//
+    
+    e=k.encryptStr(s);
+    window.d1.innerHTML = e.length+'<br/>'+e;
+    var ee = k.transportEncode(e);
+    window.d2.innerHTML = ee;
+    var dd = k.transportDecode(ee);
+    window.d3.innerHTML = dd;
+    d = k.decryptStr(dd);
+    window.d4.innerHTML =d;//(0x80>>2);
+/*var r="",n=3;
+    for(i=0;i<k.Q[n].length;i++) r+=k.Q[n][i]+',';
+   console.log(r);*/
+    
+   </script>
+</body>
+</html>

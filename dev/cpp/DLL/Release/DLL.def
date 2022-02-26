@@ -1,0 +1,5 @@
+EXPORTS
+    GFmul @1
+    decrypt @2
+    encrypt @3
+    expandKey @4

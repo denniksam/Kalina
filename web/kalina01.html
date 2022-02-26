@@ -1,0 +1,147 @@
+<html>
+<head>
+    <meta charset='utf-8'/>
+    <script src="kalina.js"></script>
+    <script src="base64.js"></script>
+</head>
+<body>
+<div id="d1"></div>
+<hr/>
+<div id="d2"></div>
+<hr/>
+<div id="d3"></div>
+<hr/>
+<div id="d4"></div>
+   <script>
+    var k,e,d;
+    try{
+        k= new Kalina(128,128);
+    }
+    catch(err){
+        console.log(err);
+    }/*
+    //console.log(k);
+    k.setKeyHex("000102030405060708090A0B0C0D0E0F");
+    //k.showRoundKeys();
+    d = k.encryptHex('101112131415161718191A1B1C1D1E1F');
+    console.log(d);
+    e = k.decryptHex(d);   
+    console.log(e);
+    //k.showRoundKeys();
+    k.setKeyHex("0F0E0D0C0B0A09080706050403020100");
+    d = k.decryptHex('1F1E1D1C1B1A19181716151413121110');
+    console.log(d);
+    e = k.encryptHex(d);
+    console.log(e);*/
+    /*
+    console.log('128-256');
+    try{
+        k= new Kalina(128,256);
+    }
+    catch(err){
+        console.log(err);
+    }
+    k.setKeyHex("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F");
+    //k.showRoundKeys();
+    d = k.encryptHex('202122232425262728292A2B2C2D2E2F');
+    console.log(d);
+    e = k.decryptHex(d);   
+    console.log(e);
+    //k.showRoundKeys();
+    k.setKeyHex("1F1E1D1C1B1A191817161514131211100F0E0D0C0B0A09080706050403020100");
+    d = k.decryptHex('2F2E2D2C2B2A29282726252423222120');
+    console.log(d);
+    e = k.encryptHex(d);
+    console.log(e);*/
+    /*
+    console.log('256-256');
+    try{
+        k= new Kalina(256,256);
+    }
+    catch(err){
+        console.log(err);
+    }
+    k.setKeyHex("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F");
+    //k.showRoundKeys();
+    d = k.encryptHex('202122232425262728292A2B2C2D2E2F303132333435363738393A3B3C3D3E3F');
+    console.log(d);
+    e = k.decryptHex(d);   
+    console.log(e);
+    //k.showRoundKeys();
+    k.setKeyHex("1F1E1D1C1B1A191817161514131211100F0E0D0C0B0A09080706050403020100");
+    d = k.decryptHex('3F3E3D3C3B3A393837363534333231302F2E2D2C2B2A29282726252423222120');
+    console.log(d);
+    e = k.encryptHex(d);
+    console.log(e);
+    */
+    /*console.log('256-512');
+    try{
+        k= new Kalina(256,512);
+    }
+    catch(err){
+        console.log(err);
+    }
+    k.setKeyHex("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F303132333435363738393A3B3C3D3E3F");
+    //k.showRoundKeys();
+    d = k.encryptHex('404142434445464748494A4B4C4D4E4F505152535455565758595A5B5C5D5E5F');
+    console.log(d);
+    e = k.decryptHex(d);   
+    console.log(e);
+    //k.showRoundKeys();
+    k.setKeyHex("3F3E3D3C3B3A393837363534333231302F2E2D2C2B2A292827262524232221201F1E1D1C1B1A191817161514131211100F0E0D0C0B0A09080706050403020100");
+    d = k.decryptHex('5F5E5D5C5B5A595857565554535251504F4E4D4C4B4A49484746454443424140');
+    console.log(d);
+    e = k.encryptHex(d);
+    console.log(e);*/
+    console.log('512-512');
+    try{
+        k= new Kalina(512,512);
+    }
+    catch(err){
+        console.log(err);
+    }
+    k.setKeyHex("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F303132333435363738393A3B3C3D3E3F");
+    //k.showRoundKeys();
+    /*
+    d = k.encryptHex('404142434445464748494A4B4C4D4E4F505152535455565758595A5B5C5D5E5F606162636465666768696A6B6C6D6E6F707172737475767778797A7B7C7D7E7F');
+    console.log(d);
+    e = k.decryptHex(d);   
+    console.log(e);
+    //k.showRoundKeys();
+    k.setKeyHex("3F3E3D3C3B3A393837363534333231302F2E2D2C2B2A292827262524232221201F1E1D1C1B1A191817161514131211100F0E0D0C0B0A09080706050403020100");
+    d = k.decryptHex('7F7E7D7C7B7A797877767574737271706F6E6D6C6B6A696867666564636261605F5E5D5C5B5A595857565554535251504F4E4D4C4B4A49484746454443424140');
+    console.log(d);
+    e = k.encryptHex(d);
+    console.log(e);
+    */
+    
+    var str='<div style="width:300px;border:1px solid red;background-color:#ffeeee;"><table border="1" cellspacing="0" style="margin:20px;"><tr><th>Таємний параметр</th><th>Значення</th></tr><tr><td>3</td><td>Таємно</td></tr><tr><td>2</td><td>Цілком таємно</td></tr><tr><td>1</td><td>Особливої важливості</td></tr>	</table></div>';
+    /*var str2='<div style="width:300px;border:1px solid red;background-color:#ffeeee;">	<table border="1" cellspacing="0" style="margin:20px;">	<tr><th>Security level</th><th>Description</th></tr>	<tr><td>3</td><td>Confidential</td></tr>	<tr><td>2</td><td>Secret</td></tr>	<tr><td>1</td><td>Top secret</td></tr>	</table></div>';
+    e = k.encryptStr(str);
+    //var c='\u3555';//'ї';
+    window.d1.innerHTML = e.length+'<br/>'+e;
+    d = k.decryptStr(e);
+    window.d2.innerHTML = str.length+' '+d.length+'<br/>'+d;
+    function utfSplit(c){
+        var u=c.charCodeAt(0);//alert(0xC0|(u>>6));
+        if(u<0x0080)return[u];
+        if(u<0x0800)return[0xC0|(u>>6),0x80|(u&0x3F)];
+        if(u<0x10000)return[0xE0|(u>>12),0x80|((u>>6)&0x3F),0x80|(u&0x3F)];
+        //return[0xF0|(u>>18),0x80|((u>>12)&0x3F),0x80|((u>>6)&0x3F),0x80|(u&0x3F)];//no support in html
+        throw "Unsupported symbol";
+    }*/
+    var s=str;//"Особливої важливості";//"ї";//
+    
+    e=k.encryptStr(s);
+    window.d1.innerHTML = e.length+'<br/>'+e;
+    var ee = Base64.encode(e);
+    window.d2.innerHTML = ee;
+    var dd = Base64.decode(ee);
+    window.d3.innerHTML = dd;
+    d = k.decryptStr(dd);
+    window.d4.innerHTML =d;//(0x80>>2);
+
+    
+   </script>
+</body>
+</html>
