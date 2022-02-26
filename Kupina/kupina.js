@@ -187,20 +187,23 @@ function Kupina( b ) {
 						I.G[ j ][ i ] += y;
 				}
 				I.IV = I.hv() ;
+				// return I.toString(I.IV);
 			}
-			// TODO: message extension
+			// --TODO: message extension
 			// fill last data
 			for( j = 0; j < I.c; ++j )  I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
-			for( let k = fullBlocks * I.L / 4; k < message.length; ++k ) {
+			let sk = fullBlocks * I.L / 4 ;
+			for( let k = sk; k < message.length; ++k ) {
 				let y = message.charCodeAt( k ) ;
 				// console.log( hexString.charAt(k), y);
 				if( y >= 48 && y <= 57 ) y = y - 48 ; // 0-9 
 				else if( y >= 65 && y <= 70 ) y = y - 55 ; // A-F
 				else if( y >= 97 && y <= 102 ) y = y - 87 ; // a-f
 				else throw "Invalid hexadecimal string format: k=" + k + " s=" + message.charAt( k ) + " c=" + message.charCodeAt( k ) ;
-				h = k % 2 ;  // hi / low part
-				i = ( k - h ) / 2 % 8 ;  // byte in G
-				j = ( ( k - h ) / 2 - i ) / 8 ;  // row
+				h = (k-sk) % 2 ;  // hi / low part
+				i = ( (k-sk) - h ) / 2 % 8 ;  // byte in G
+				j = ( ( (k-sk) - h ) / 2 - i ) / 8 ;  // row
+			//console.log(j, i, I.c);
 				if( h == 0 )
 					I.G[ j ][ i ] = y * 16 ;
 				else 
@@ -224,6 +227,7 @@ function Kupina( b ) {
 				I.G[ I.c - 1 ][ 5 ] = 0 ;  // ( bitLength >>> 72 ) & 0xFF ;
 				I.G[ I.c - 1 ][ 6 ] = 0 ;  // ( bitLength >>> 80 ) & 0xFF ;
 				I.G[ I.c - 1 ][ 7 ] = 0 ;  // ( bitLength >>> 88 ) & 0xFF ;
+				
 				I.IV = I.hv() ;
 				let t0 = I.transform0( I.IV ) ;
 				for( j = 0; j < I.c; ++j ) {
@@ -231,8 +235,18 @@ function Kupina( b ) {
 						I.G[ j ][ i ] = t0[ j ][ i ] ^ I.IV[ j ][ i ] ;
 					}
 				}
-				// TODO: return last I.b bit from I.G
-				let ret = [] ;
+				// return last I.b bit from I.G
+				let si = ( I.L - I.b ) / 8 % 8 ;  // start i
+				let sj =  ( ( I.L - I.b ) - si * 8 ) / 8 / 8 ;  // start j
+				let ret = "" ;
+				for( j = sj; j < I.c; ++j ) {
+					for( i = (j==sj)?si:0; i < 8; ++i ) {
+						if( I.G[ j ][ i ] < 16 )
+							ret += '0' ; 
+						ret += I.G[ j ][ i ].toString( 16 ) ;
+					}
+				}
+				return ret ;
 			}
 			else if( I.L - bitLength % I.L > 97 ) {
 				// padding inside one matrix
@@ -247,6 +261,51 @@ function Kupina( b ) {
 					}
 					I.G[ j ][ i ] = 0x80 ;
 				}
+				let si = i ;  // start i
+				let sj = j ;  // start j
+				++si ;
+				if( si >= 8 ) {
+					si = 0;
+					++sj ;
+				}
+				// zero last block bytes
+				for( j = sj; j < I.c; ++j ) {
+					for( i = (j==sj)?si:0; i < 8; ++i ) {
+						I.G[ j ][ i ] = 0 ;
+					}
+				}
+				// 96 bit length little endian
+				I.G[ I.c - 2 ][ 4 ] = bitLength & 0xFF ;
+				I.G[ I.c - 2 ][ 5 ] = ( bitLength >>> 8  ) & 0xFF ;
+				I.G[ I.c - 2 ][ 6 ] = ( bitLength >>> 16 ) & 0xFF ;
+				I.G[ I.c - 2 ][ 7 ] = ( bitLength >>> 24 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 0 ] = 0 ;  // ( bitLength >>> 32 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 1 ] = 0 ;  // ( bitLength >>> 40 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 2 ] = 0 ;  // ( bitLength >>> 48 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 3 ] = 0 ;  // ( bitLength >>> 56 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 4 ] = 0 ;  // ( bitLength >>> 64 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 5 ] = 0 ;  // ( bitLength >>> 72 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 6 ] = 0 ;  // ( bitLength >>> 80 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 7 ] = 0 ;  // ( bitLength >>> 88 ) & 0xFF ;
+				I.IV = I.hv() ;
+				let t0 = I.transform0( I.IV ) ;
+				for( j = 0; j < I.c; ++j ) {
+					for( i = 0; i < 8; ++i ) {
+						I.G[ j ][ i ] = t0[ j ][ i ] ^ I.IV[ j ][ i ] ;
+					}
+				}
+				// return last I.b bit from I.G
+				si = ( I.L - I.b ) / 8 % 8 ;  // start i
+				sj =  ( ( I.L - I.b ) - si * 8 ) / 8 / 8 ;  // start j
+				let ret = "" ;
+				for( j = sj; j < I.c; ++j ) {
+					for( i = (j==sj)?si:0; i < 8; ++i ) {
+						if( I.G[ j ][ i ] < 16 )
+							ret += '0' ; 
+						ret += I.G[ j ][ i ].toString( 16 ) ;
+					}
+				}
+				return ret ;
 			}
 			else {
 				// padding forms new block
