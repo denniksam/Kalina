@@ -16,19 +16,18 @@ function Kupina( b ) {
 		I.c = 16 ;
 	}
     
-	I.init = function() {
-		I.G  = [ ] ;
-		I.IV = [ ] ;
-		for( j = 0; j < I.c; ++j ) {
-			I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
-			I.IV[ j ] = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
-		}
-		if( I.L == 512 ) {
-			I.IV[0][0] = 0x40 ;
-		}
-		else {
-			I.IV[0][0] = 0x80 ;
-		}
+	// Internal state matrix and IV
+	I.G  = [ ] ;
+	I.IV = [ ] ;
+	for( j = 0; j < I.c; ++j ) {
+		I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
+		I.IV[ j ] = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
+	}
+	if( I.L == 512 ) {
+		I.IV[0][0] = 0x40 ;
+	}
+	else {
+		I.IV[0][0] = 0x80 ;
 	}
 
 	I.toString = function( matrix = I.G ) {
@@ -43,6 +42,33 @@ function Kupina( b ) {
 		}
 		return ret ;
 	}    
+
+	I.parseHex = function( hexString ) {
+		var N = 0 ;  // message length in bit
+		for( let k = 0; k < hexString.length; ++k ) {
+			let y = hexString.charCodeAt( k ) ;
+			// console.log( hexString.charAt(k), y);
+			if( y >= 48 && y <= 57 ) y = y - 48 ; // 0-9 
+			else if( y >= 65 && y <= 70 ) y = y - 55 ; // A-F
+			else if( y >= 97 && y <= 102 ) y = y - 87 ; // a-f
+			else throw "Invalid hexadecimal string format: k=" + k + " s=" + hexString.charAt( k ) + " c=" + hexString.charCodeAt( k ) ;
+			let h = k % 2 ;  // hi / low part
+			i = ( k - h ) / 2 % 8 ;  // byte in G
+			j = ( ( k - h ) / 2 - i ) / 8 ;  // row
+			if( h == 0 )
+				I.G[ j ][ i ] = y * 16 ;
+			else 
+				I.G[ j ][ i ] += y;
+			N += 4 ;
+		}
+		// message extension
+		const d = ( ( -N - 97 ) % I.L + I.L ) % I.L ;  // extra '0' bits
+		for( let k = 0; k <= d; ++k ) {
+			++N ;
+			i = 1;
+		}
+		// console.log(I.L, N, d ) ;
+	}
 
 	I.transform0 = function( matrix = I.G ) {
 		var Gtmp = [] ;
@@ -139,224 +165,212 @@ function Kupina( b ) {
 		return h ;
 	}
 
-	I.rln = function() {
-		let t0 = I.transform0( I.IV ) ;
-		for( j = 0; j < I.c; ++j ) {
-			for( i = 0; i < 8; ++i ) {
-				I.G[ j ][ i ] = t0[ j ][ i ] ^ I.IV[ j ][ i ] ;
+	I.digest = function( message, mode = "HEX", IV = null ) {
+		if( mode == "HEX" ) {
+			let bitLength = message.length * 4 ;
+			let fullBlocks = Math.floor( bitLength / I.L ) ;
+			let h ;
+			for( let b = 0; b < fullBlocks; ++b ) {
+				for( let k = b * I.L / 4; k < ( b + 1 ) * I.L / 4; ++k ) {
+					let y = message.charCodeAt( k ) ;
+					// console.log( hexString.charAt(k), y);
+					if( y >= 48 && y <= 57 ) y = y - 48 ; // 0-9 
+					else if( y >= 65 && y <= 70 ) y = y - 55 ; // A-F
+					else if( y >= 97 && y <= 102 ) y = y - 87 ; // a-f
+					else throw "Invalid hexadecimal string format: k=" + k + " s=" + message.charAt( k ) + " c=" + message.charCodeAt( k ) ;
+					h = k % 2 ;  // hi / low part
+					i = ( k - h ) / 2 % 8 ;  // byte in G
+					j = ( ( k - h ) / 2 - i ) / 8 ;  // row
+					if( h == 0 )
+						I.G[ j ][ i ] = y * 16 ;
+					else 
+						I.G[ j ][ i ] += y;
+				}
+				I.IV = I.hv() ;
+				// return I.toString(I.IV);
 			}
-		}
-		// return last I.b bit from I.G
-		let si = ( I.L - I.b ) / 8 % 8 ;  // start i
-		let sj =  ( ( I.L - I.b ) - si * 8 ) / 8 / 8 ;  // start j
-		let ret = "" ;
-		for( j = sj; j < I.c; ++j ) {
-			for( i = (j==sj)?si:0; i < 8; ++i ) {
-				if( I.G[ j ][ i ] < 16 )
-					ret += '0' ; 
-				ret += I.G[ j ][ i ].toString( 16 ).toUpperCase() ;
-			}
-		}
-		return ret ;
-	}
-
-	I.writeSize = function( bitLength ) {
-		// 96 bit length little endian
-		I.G[ I.c - 2 ][ 4 ] = bitLength & 0xFF ;
-		I.G[ I.c - 2 ][ 5 ] = ( bitLength >>> 8  ) & 0xFF ;
-		I.G[ I.c - 2 ][ 6 ] = ( bitLength >>> 16 ) & 0xFF ;
-		I.G[ I.c - 2 ][ 7 ] = ( bitLength >>> 24 ) & 0xFF ;
-		I.G[ I.c - 1 ][ 0 ] = 0 ;  // ( bitLength >>> 32 ) & 0xFF ;
-		I.G[ I.c - 1 ][ 1 ] = 0 ;  // ( bitLength >>> 40 ) & 0xFF ;
-		I.G[ I.c - 1 ][ 2 ] = 0 ;  // ( bitLength >>> 48 ) & 0xFF ;
-		I.G[ I.c - 1 ][ 3 ] = 0 ;  // ( bitLength >>> 56 ) & 0xFF ;
-		I.G[ I.c - 1 ][ 4 ] = 0 ;  // ( bitLength >>> 64 ) & 0xFF ;
-		I.G[ I.c - 1 ][ 5 ] = 0 ;  // ( bitLength >>> 72 ) & 0xFF ;
-		I.G[ I.c - 1 ][ 6 ] = 0 ;  // ( bitLength >>> 80 ) & 0xFF ;
-		I.G[ I.c - 1 ][ 7 ] = 0 ;  // ( bitLength >>> 88 ) & 0xFF ;
-	}
-
-	I.procHex = function( message ) {
-		let bitLength = message.length * 4 ;
-		let fullBlocks = Math.floor( bitLength / I.L ) ;
-		let h ;
-		for( let b = 0; b < fullBlocks; ++b ) {
-			for( let k = b * I.L / 4; k < ( b + 1 ) * I.L / 4; ++k ) {
+			// --TODO: message extension
+			// fill last data
+			for( j = 0; j < I.c; ++j )  I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
+			let sk = fullBlocks * I.L / 4 ;
+			for( let k = sk; k < message.length; ++k ) {
 				let y = message.charCodeAt( k ) ;
 				// console.log( hexString.charAt(k), y);
 				if( y >= 48 && y <= 57 ) y = y - 48 ; // 0-9 
 				else if( y >= 65 && y <= 70 ) y = y - 55 ; // A-F
 				else if( y >= 97 && y <= 102 ) y = y - 87 ; // a-f
 				else throw "Invalid hexadecimal string format: k=" + k + " s=" + message.charAt( k ) + " c=" + message.charCodeAt( k ) ;
-				h = k % 2 ;  // hi / low part
-				i = ( k - h ) / 2 % 8 ;  // byte in G
-				j = ( ( k - h ) / 2 - i ) / 8 ;  // row
+				h = (k-sk) % 2 ;  // hi / low part
+				i = ( (k-sk) - h ) / 2 % 8 ;  // byte in G
+				j = ( ( (k-sk) - h ) / 2 - i ) / 8 ;  // row
+			//console.log(j, i, I.c);
 				if( h == 0 )
 					I.G[ j ][ i ] = y * 16 ;
 				else 
 					I.G[ j ][ i ] += y;
 			}
-			I.IV = I.hv() ;
-		}
-		//  message extension (padding)
-		// fill last data
-		for( j = 0; j < I.c; ++j )  I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
-		let sk = fullBlocks * I.L / 4 ;
-		for( let k = sk; k < message.length; ++k ) {
-			let y = message.charCodeAt( k ) ;
-			// console.log( hexString.charAt(k), y);
-			if( y >= 48 && y <= 57 ) y = y - 48 ; // 0-9 
-			else if( y >= 65 && y <= 70 ) y = y - 55 ; // A-F
-			else if( y >= 97 && y <= 102 ) y = y - 87 ; // a-f
-			else throw "Invalid hexadecimal string format: k=" + k + " s=" + message.charAt( k ) + " c=" + message.charCodeAt( k ) ;
-			h = (k-sk) % 2 ;  // hi / low part
-			i = ( (k-sk) - h ) / 2 % 8 ;  // byte in G
-			j = ( ( (k-sk) - h ) / 2 - i ) / 8 ;  // row
-			if( h == 0 )
-				I.G[ j ][ i ] = y * 16 ;
-			else 
-				I.G[ j ][ i ] += y;
-		}
-		// last filled index: i, j
-		if( bitLength % I.L == 0 ) {  // start new block
-			I.G[ 0 ][ 0 ] = 0x80 ;
-			j = 0 ;
-			i = 1 ;
-			
-			I.writeSize( bitLength ) ;
-			I.IV = I.hv() ;
-			return I.rln() ;
-		}
-		else if( I.L - bitLength % I.L > 97 ) {
-			// padding inside one matrix
-			if( h == 0 ) {  // update last byte
-				I.G[ j ][ i ] += 8 ;
+			// last filled index: i, j
+			if( bitLength % I.L == 0 ) {  // start new block
+				I.G[ 0 ][ 0 ] = 0x80 ;
+				j = 0 ;
+				i = 1 ;
+				// 96 bit length little endian
+				I.G[ I.c - 2 ][ 4 ] = bitLength & 0xFF ;
+				I.G[ I.c - 2 ][ 5 ] = ( bitLength >>> 8  ) & 0xFF ;
+				I.G[ I.c - 2 ][ 6 ] = ( bitLength >>> 16 ) & 0xFF ;
+				I.G[ I.c - 2 ][ 7 ] = ( bitLength >>> 24 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 0 ] = 0 ;  // ( bitLength >>> 32 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 1 ] = 0 ;  // ( bitLength >>> 40 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 2 ] = 0 ;  // ( bitLength >>> 48 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 3 ] = 0 ;  // ( bitLength >>> 56 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 4 ] = 0 ;  // ( bitLength >>> 64 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 5 ] = 0 ;  // ( bitLength >>> 72 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 6 ] = 0 ;  // ( bitLength >>> 80 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 7 ] = 0 ;  // ( bitLength >>> 88 ) & 0xFF ;
+				
+				I.IV = I.hv() ;
+				let t0 = I.transform0( I.IV ) ;
+				for( j = 0; j < I.c; ++j ) {
+					for( i = 0; i < 8; ++i ) {
+						I.G[ j ][ i ] = t0[ j ][ i ] ^ I.IV[ j ][ i ] ;
+					}
+				}
+				// return last I.b bit from I.G
+				let si = ( I.L - I.b ) / 8 % 8 ;  // start i
+				let sj =  ( ( I.L - I.b ) - si * 8 ) / 8 / 8 ;  // start j
+				let ret = "" ;
+				for( j = sj; j < I.c; ++j ) {
+					for( i = (j==sj)?si:0; i < 8; ++i ) {
+						if( I.G[ j ][ i ] < 16 )
+							ret += '0' ; 
+						ret += I.G[ j ][ i ].toString( 16 ) ;
+					}
+				}
+				return ret ;
+			}
+			else if( I.L - bitLength % I.L > 97 ) {
+				// padding inside one matrix
+				if( h == 0 ) {  // update last byte
+					I.G[ j ][ i ] += 8 ;
+				}
+				else {
+					++i;
+					if( i >= 8 ) {
+						i = 0; 
+						++j;
+					}
+					I.G[ j ][ i ] = 0x80 ;
+				}
+				let si = i ;  // start i
+				let sj = j ;  // start j
+				++si ;
+				if( si >= 8 ) {
+					si = 0;
+					++sj ;
+				}
+				// zero last block bytes
+				for( j = sj; j < I.c; ++j ) {
+					for( i = (j==sj)?si:0; i < 8; ++i ) {
+						I.G[ j ][ i ] = 0 ;
+					}
+				}
+				// 96 bit length little endian
+				I.G[ I.c - 2 ][ 4 ] = bitLength & 0xFF ;
+				I.G[ I.c - 2 ][ 5 ] = ( bitLength >>> 8  ) & 0xFF ;
+				I.G[ I.c - 2 ][ 6 ] = ( bitLength >>> 16 ) & 0xFF ;
+				I.G[ I.c - 2 ][ 7 ] = ( bitLength >>> 24 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 0 ] = 0 ;  // ( bitLength >>> 32 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 1 ] = 0 ;  // ( bitLength >>> 40 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 2 ] = 0 ;  // ( bitLength >>> 48 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 3 ] = 0 ;  // ( bitLength >>> 56 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 4 ] = 0 ;  // ( bitLength >>> 64 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 5 ] = 0 ;  // ( bitLength >>> 72 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 6 ] = 0 ;  // ( bitLength >>> 80 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 7 ] = 0 ;  // ( bitLength >>> 88 ) & 0xFF ;
+				I.IV = I.hv() ;
+				let t0 = I.transform0( I.IV ) ;
+				for( j = 0; j < I.c; ++j ) {
+					for( i = 0; i < 8; ++i ) {
+						I.G[ j ][ i ] = t0[ j ][ i ] ^ I.IV[ j ][ i ] ;
+					}
+				}
+				// return last I.b bit from I.G
+				si = ( I.L - I.b ) / 8 % 8 ;  // start i
+				sj =  ( ( I.L - I.b ) - si * 8 ) / 8 / 8 ;  // start j
+				let ret = "" ;
+				for( j = sj; j < I.c; ++j ) {
+					for( i = (j==sj)?si:0; i < 8; ++i ) {
+						if( I.G[ j ][ i ] < 16 )
+							ret += '0' ; 
+						ret += I.G[ j ][ i ].toString( 16 ) ;
+					}
+				}
+				return ret ;
 			}
 			else {
-				++i;
-				if( i >= 8 ) {
-					i = 0; 
-					++j;
+				// padding forms new block
+				if( h == 0 ) {  // update last byte
+					I.G[ j ][ i ] += 8 ;
 				}
-				I.G[ j ][ i ] = 0x80 ;
-			}
-			let si = i ;  // start i
-			let sj = j ;  // start j
-			++si ;
-			if( si >= 8 ) {
-				si = 0;
-				++sj ;
-			}
-			// zero last block bytes
-			for( j = sj; j < I.c; ++j ) {
-				for( i = (j==sj)?si:0; i < 8; ++i ) {
-					I.G[ j ][ i ] = 0 ;
+				else {
+					++i;
+					if( i >= 8 ) {
+						i = 0; 
+						++j;
+					}
+					I.G[ j ][ i ] = 0x80 ;
 				}
-			}
-			
-			I.writeSize( bitLength ) ;
-			I.IV = I.hv() ;
-			return I.rln() ;
-		}
-		else {
-			// padding forms new block
-			if( h == 0 ) {  // update last byte
-				I.G[ j ][ i ] += 8 ;
-			}
-			else {
-				++i;
-				if( i >= 8 ) {
-					i = 0; 
-					++j;
-				}
-				I.G[ j ][ i ] = 0x80 ;
-			}
-			// zero matrix tail
-			++i ;
-			while( i < 8 ) {
-				I.G[ j ][ i ] = 0 ;
+				// zero matrix tail
 				++i ;
-			}
-			++j ;
-			while( j < I.c )  {
-				I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
+				while( i < 8 ) {
+					I.G[ j ][ i ] = 0 ;
+					++i ;
+				}
 				++j ;
-			}
-			I.IV = I.hv() ;
+				while( j < I.c )  I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
 
-			// zero matrix
-			for( j = 0; j < I.c; ++j )  I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
+				I.IV = I.hv() ;
+
+				// zero matrix
+				for( j = 0; j < I.c; ++j )  I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
+				// size info
+				// 96 bit length little endian
+				I.G[ I.c - 2 ][ 4 ] = bitLength & 0xFF ;
+				I.G[ I.c - 2 ][ 5 ] = ( bitLength >>> 8  ) & 0xFF ;
+				I.G[ I.c - 2 ][ 6 ] = ( bitLength >>> 16 ) & 0xFF ;
+				I.G[ I.c - 2 ][ 7 ] = ( bitLength >>> 24 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 0 ] = 0 ;  // ( bitLength >>> 32 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 1 ] = 0 ;  // ( bitLength >>> 40 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 2 ] = 0 ;  // ( bitLength >>> 48 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 3 ] = 0 ;  // ( bitLength >>> 56 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 4 ] = 0 ;  // ( bitLength >>> 64 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 5 ] = 0 ;  // ( bitLength >>> 72 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 6 ] = 0 ;  // ( bitLength >>> 80 ) & 0xFF ;
+				I.G[ I.c - 1 ][ 7 ] = 0 ;  // ( bitLength >>> 88 ) & 0xFF ;
+
+				I.IV = I.hv() ;
+
+				let t0 = I.transform0( I.IV ) ;
+				for( j = 0; j < I.c; ++j ) {
+					for( i = 0; i < 8; ++i ) {
+						I.G[ j ][ i ] = t0[ j ][ i ] ^ I.IV[ j ][ i ] ;
+					}
+				}
+				// return last I.b bit from I.G
+				si = ( I.L - I.b ) / 8 % 8 ;  // start i
+				sj =  ( ( I.L - I.b ) - si * 8 ) / 8 / 8 ;  // start j
+				let ret = "" ;
+				for( j = sj; j < I.c; ++j ) {
+					for( i = (j==sj)?si:0; i < 8; ++i ) {
+						if( I.G[ j ][ i ] < 16 )
+							ret += '0' ; 
+						ret += I.G[ j ][ i ].toString( 16 ) ;
+					}
+				}
+				return ret ;
+			}
 			
-			I.writeSize( bitLength ) ;
-			I.IV = I.hv() ;
-			return I.rln() ;
-		}
-	}
 
-	I.procStr = function( message ) {
-		const bitLength = message.length * 16 ;				// message length in bits
-		const fullBlocks = Math.floor( bitLength / I.L ) ;	// count of full filled blocks
-		var pos = 0 ;										// symbol position in message
-		for( let b = 0; b < fullBlocks; ++b ) {				// filled blocks proctssing
-			for( j = 0; j < I.c; ++j ) {					// matrix rows
-				for( i = 0; i < 8; i += 2 ) {				// matrix lines
-					let sym = message.charCodeAt( pos ) ;	// message symbol
-					I.G[ j ][ i ] = ( sym >> 8 ) & 0xFF ;	// high byte
-					I.G[ j ][ i + 1 ] = sym  & 0xFF ;		// low byte
-					++pos ;									// next symbol
-				}											// 
-			}												// 
-			I.IV = I.hv() ;									// 	state iteration
-		}
-		j = i = 0 ;
-		while( pos < message.length ) {
-			let sym = message.charCodeAt( pos ) ;
-			I.G[ j ][ i ] = ( sym >> 8 ) & 0xFF ;
-			I.G[ j ][ i + 1 ] = sym  & 0xFF ;
-			++pos ;
-			i += 2 ;
-			if( i >= 8 ) {
-				i = 0 ;
-				++j ;
-			}
-		}
-		let js = j ;  // save index of
-		let is = i ;  // first free cell
-		// zero matrix tail		
-		while( i < 8 ) {
-			I.G[ j ][ i ] = 0 ;
-			++i ;
-		}
-		++j ;
-		while( j < I.c )  {
-			I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
-			++j ;
-		}
-		I.G[ js ][ is ] = 0x80 ;  // add "1" bit
-
-		if( I.L - bitLength % I.L > 97 ) {  // size writes to this block
-			I.writeSize( bitLength ) ;
-		} 
-		else {   // size writes to next empty block
-			// proceed block 
-			I.IV = I.hv() ;
-			// and start new block
-			for( j = 0; j < I.c; ++j )  I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
-			I.writeSize( bitLength ) ;
-		}
-		I.IV = I.hv() ;
-		return I.rln() ;
-		// return I.toString() ;
-	}
-
-	I.digest = function( message, mode = "HEX" ) {
-		if( mode == "HEX" ) {
-			I.init() ;	
-			return I.procHex( message ) ;
-		}
-		else if( mode == "STR" ) {
-			I.init() ;		
-			return I.procStr( message ) ;
 		}
 		else {
 			throw "Mode '" + mode + "' unsupported" ;
@@ -373,4 +387,10 @@ function Kupina( b ) {
     I.v=[1,1,5,1,8,6,7,4];
 	I.shift=[ 0, 1, 2, 3, 4, 5, 6, ( I.L == 1024 ? 11 : 7 ) ] ;
 	I.M=function(x,y){if(x==0||y==0)return 0;return I.P[I.R[x]+I.R[y]];}
+    I.l = (I.k == 2*I.b)?2*I.c:I.c;
+    I.K = [];for(j=0;j<I.l;j++)I.K[j] = [0,0,0,0,0,0,0,0];
+    I.Kr=[];for(i=0;i<=I.r;i++){I.Kr[i]=[];for(j=0;j<I.c;j++)I.Kr[i][j]=[0,0,0,0,0,0,0,0];}
+    I.T="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";//RFC 3548 sec 4
+    
+	
 }
