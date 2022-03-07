@@ -4,7 +4,7 @@ function Kupina( b ) {
 	if( ! b )  throw "Hash size undefined" ; 
 	I.b = b ;
 	// hash (block) size
-	if( I.b <= 8 || I.b > 1024 ) throw "Invalid hash size" ; 
+	if( I.b < 8 || I.b > 1024 ) throw "Invalid hash size" ; 
     if( I.b <= 256 ) {
 		I.L = 512 ;  // internal state length
 		I.t = 10  ;  // iteration count
