@@ -226,16 +226,13 @@ class Kupina {
 			++$j ;
 		}
 		// echo $remainder, "<br>" ;
-		if( $remainder >= 96 ) {
-			$this->write_size( $message_bit_length ) ;
-		}
-		else {
+		if( $remainder < 96 ) {
 			$this->iv = $this->hash_v( $this->state ) ;
 			for( $j = 0; $j < $this->columns; ++$j ) {
 				$this->state[ $j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
 			}
-			$this->write_size( $message_bit_length ) ;
 		}
+		$this->write_size( $message_bit_length ) ;
 		$this->iv = $this->hash_v( $this->state ) ;
 		return $this->reduce_ln() ;
     }

@@ -31,6 +31,7 @@ function Kupina( b ) {
 		}
 		I.col = 0 ;
 		I.row = 0 ;
+		I.high = true ;
 	}
 
 	I.toString = function( matrix = I.G ) {
@@ -180,179 +181,45 @@ function Kupina( b ) {
 
 	I.procHex = function( message ) {
 		let bitLength = message.length * 4 ;
-		let fullBlocks = Math.floor( bitLength / I.L ) ;
-		let h ;
-		for( let b = 0; b < fullBlocks; ++b ) {
-			for( let k = b * I.L / 4; k < ( b + 1 ) * I.L / 4; ++k ) {
-				let y = message.charCodeAt( k ) ;
-				// console.log( hexString.charAt(k), y);
-				if( y >= 48 && y <= 57 ) y = y - 48 ; // 0-9 
-				else if( y >= 65 && y <= 70 ) y = y - 55 ; // A-F
-				else if( y >= 97 && y <= 102 ) y = y - 87 ; // a-f
-				else throw "Invalid hexadecimal string format: k=" + k + " s=" + message.charAt( k ) + " c=" + message.charCodeAt( k ) ;
-				h = k % 2 ;  // hi / low part
-				i = ( k - h ) / 2 % 8 ;  // byte in G
-				j = ( ( k - h ) / 2 - i ) / 8 ;  // row
-				if( h == 0 )
-					I.G[ j ][ i ] = y * 16 ;
-				else 
-					I.G[ j ][ i ] += y;
-			}
+		
+		for( let b = 0; b < message.length; ++b ) {
+			I.appendHex( message.charAt( b ) ) ;
+		}
+		I.appendHex( '8' ) ;
+		if( I.freeBits() < 96 ) {
 			I.IV = I.hv() ;
-		}
-		//  message extension (padding)
-		// fill last data
-		for( j = 0; j < I.c; ++j )  I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
-		let sk = fullBlocks * I.L / 4 ;
-		for( let k = sk; k < message.length; ++k ) {
-			let y = message.charCodeAt( k ) ;
-			// console.log( hexString.charAt(k), y);
-			if( y >= 48 && y <= 57 ) y = y - 48 ; // 0-9 
-			else if( y >= 65 && y <= 70 ) y = y - 55 ; // A-F
-			else if( y >= 97 && y <= 102 ) y = y - 87 ; // a-f
-			else throw "Invalid hexadecimal string format: k=" + k + " s=" + message.charAt( k ) + " c=" + message.charCodeAt( k ) ;
-			h = (k-sk) % 2 ;  // hi / low part
-			i = ( (k-sk) - h ) / 2 % 8 ;  // byte in G
-			j = ( ( (k-sk) - h ) / 2 - i ) / 8 ;  // row
-			if( h == 0 )
-				I.G[ j ][ i ] = y * 16 ;
-			else 
-				I.G[ j ][ i ] += y;
-		}
-		// last filled index: i, j
-		if( bitLength % I.L == 0 ) {  // start new block
-			I.G[ 0 ][ 0 ] = 0x80 ;
-			j = 0 ;
-			i = 1 ;
-			
-			I.writeSize( bitLength ) ;
-			I.IV = I.hv() ;
-			return I.rln() ;
-		}
-		else if( I.L - bitLength % I.L > 97 ) {
-			// padding inside one matrix
-			if( h == 0 ) {  // update last byte
-				I.G[ j ][ i ] += 8 ;
-			}
-			else {
-				++i;
-				if( i >= 8 ) {
-					i = 0; 
-					++j;
-				}
-				I.G[ j ][ i ] = 0x80 ;
-			}
-			let si = i ;  // start i
-			let sj = j ;  // start j
-			++si ;
-			if( si >= 8 ) {
-				si = 0;
-				++sj ;
-			}
-			// zero last block bytes
-			for( j = sj; j < I.c; ++j ) {
-				for( i = (j==sj)?si:0; i < 8; ++i ) {
-					I.G[ j ][ i ] = 0 ;
-				}
-			}
-			
-			I.writeSize( bitLength ) ;
-			I.IV = I.hv() ;
-			return I.rln() ;
-		}
-		else {
-			// padding forms new block
-			if( h == 0 ) {  // update last byte
-				I.G[ j ][ i ] += 8 ;
-			}
-			else {
-				++i;
-				if( i >= 8 ) {
-					i = 0; 
-					++j;
-				}
-				I.G[ j ][ i ] = 0x80 ;
-			}
-			// zero matrix tail
-			++i ;
-			while( i < 8 ) {
-				I.G[ j ][ i ] = 0 ;
-				++i ;
-			}
-			++j ;
-			while( j < I.c )  {
+			for( j = 0; j < I.c; ++j ) {
 				I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
-				++j ;
 			}
-			I.IV = I.hv() ;
-
-			// zero matrix
-			for( j = 0; j < I.c; ++j )  I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
-			
-			I.writeSize( bitLength ) ;
-			I.IV = I.hv() ;
-			return I.rln() ;
 		}
+		I.writeSize( bitLength ) ;
+		I.IV = I.hv() ;
+		return I.rln() ;
 	}
 
 	I.procStr = function( message ) {
-		const bitLength = message.length * 16 ;				// message length in bits
-		const fullBlocks = Math.floor( bitLength / I.L ) ;	// count of full filled blocks
-		var pos = 0 ;										// symbol position in message
-		for( let b = 0; b < fullBlocks; ++b ) {				// filled blocks proctssing
-			for( j = 0; j < I.c; ++j ) {					// matrix rows
-				for( i = 0; i < 8; i += 2 ) {				// matrix lines
-					let sym = message.charCodeAt( pos ) ;	// message symbol
-					I.G[ j ][ i ] = ( sym >> 8 ) & 0xFF ;	// high byte
-					I.G[ j ][ i + 1 ] = sym  & 0xFF ;		// low byte
-					++pos ;									// next symbol
-				}											// 
-			}												// 
-			I.IV = I.hv() ;									// 	state iteration
-		}
-		j = i = 0 ;
+		const bitLength = message.length * 16 ;		
+		var pos = 0 ;
 		while( pos < message.length ) {
 			let sym = message.charCodeAt( pos ) ;
-			I.G[ j ][ i ] = ( sym >> 8 ) & 0xFF ;
-			I.G[ j ][ i + 1 ] = sym  & 0xFF ;
+			I.appendByte( ( sym >> 8 ) & 0xFF ) ;
+			I.appendByte( sym  & 0xFF ) ;
 			++pos ;
-			i += 2 ;
-			if( i >= 8 ) {
-				i = 0 ;
-				++j ;
+		}
+		I.appendByte( 0x80 ) ;
+		if( I.freeBits() < 96 ) {
+			I.IV = I.hv() ;
+			for( j = 0; j < I.c; ++j ) {
+				I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
 			}
 		}
-		let js = j ;  // save index of
-		let is = i ;  // first free cell
-		// zero matrix tail		
-		while( i < 8 ) {
-			I.G[ j ][ i ] = 0 ;
-			++i ;
-		}
-		++j ;
-		while( j < I.c )  {
-			I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
-			++j ;
-		}
-		I.G[ js ][ is ] = 0x80 ;  // add "1" bit
-
-		if( I.L - bitLength % I.L > 97 ) {  // size writes to this block
-			I.writeSize( bitLength ) ;
-		} 
-		else {   // size writes to next empty block
-			// proceed block 
-			I.IV = I.hv() ;
-			// and start new block
-			for( j = 0; j < I.c; ++j )  I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
-			I.writeSize( bitLength ) ;
-		}
+		I.writeSize( bitLength ) ;
 		I.IV = I.hv() ;
 		return I.rln() ;
 		// return I.toString() ;
 	}
 
-	I.appendByte = function( b ) {
-		I.G[ I.col ][ I.row ] = b ;
+	I.incCell = function() {
 		++I.row ;
 		if( I.row >= 8 ) {
 			I.row = 0 ;
@@ -367,8 +234,37 @@ function Kupina( b ) {
 		}
 	}
 
+	I.appendByte = function( b ) {
+		if( I.high ) {
+			I.G[ I.col ][ I.row ] = b ;
+			I.incCell() ;
+		}
+		else {
+			I.G[ I.col ][ I.row ] += ( b >> 4 ) & 0xF ;
+			I.incCell() ;
+			I.G[ I.col ][ I.row ] = ( b & 0xF ) << 4 ;
+		}
+	}
+
+	I.appendHex = function( h ) {
+		let y = h.charCodeAt( 0 ) ;
+		if( y >= 48 && y <= 57 )       y = y - 48 ;  // 0-9 
+		else if( y >= 65 && y <= 70 )  y = y - 55 ;  // A-F
+		else if( y >= 97 && y <= 102 ) y = y - 87 ;  // a-f
+		else throw "Invalid hexadecimal symbol: " + h ;
+				
+		if( I.high ) {
+			I.G[ I.col ][ I.row ] = y << 4 ;
+		}
+		else {
+			I.G[ I.col ][ I.row ] += y ;
+			I.incCell() ;
+		}
+		I.high = ! I.high ;
+	}
+
 	I.freeBits = function() {
-		return ( ( I.c - I.col - 1 ) * 8 + ( 8 - I.row ) ) * 8 ;
+		return ( ( I.c - I.col - 1 ) * 8 + ( 8 - I.row ) ) * 8 - ( I.high ? 0 : 4 ) ;
 	}
 
 	I.procUtf8 = function( message ) {
