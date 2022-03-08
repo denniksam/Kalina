@@ -61,8 +61,8 @@ class Kupina {
     public function digest( $message, $mode = "STR" ) {
         switch( $mode ) {
             case "STR" :
-
-                break ;
+				return $this->from_utf8( $message ) ;
+				break ;
             case "HEX" :
                 return $this->from_hex( $message ) ;
                 break ;
@@ -104,6 +104,63 @@ class Kupina {
             $this->pw2ind[ $b ]
         ] ;
 	}
+
+	/**
+     * Hash computing considering message to be UTF-8 string
+     * @param message input string
+     * @return HEX digest
+     */
+    private function from_utf8( $message ) {
+		if( ! is_string( $message ) ) {
+            throw new Exception( "Invalid input type. String only" ) ;
+        }
+        $this->init_state() ;
+        $symbol_length = strlen( $message ) ;
+		$message_bit_length = $symbol_length * 8 ;
+		$position = 0 ;
+        $i = 0 ;
+        $j = 0 ;
+        for( $position = 0; $position < $symbol_length; ++$position ) {
+			$this->state[ $j ][ $i ] = ord( $message[ $position ] ) ;
+			++$i ;
+			if( $i >= 8 ) {
+				$i = 0 ;
+				++$j ;
+				if( $j >= $this->columns ) {
+					// block is full, proceed it
+					$this->iv = $this->hash_v( $this->state ) ;
+			// $full_blocks++ ; if( $full_blocks == 1) $this->matrix_to_hex( $this->transform_0( $this->state ), "<br>" ) ; // return $this->matrix_to_hex( $this->iv, "<br>" ) ;		
+					$i = 0 ;
+					$j = 0 ;
+				}
+			}
+		}
+		// Append "1" bit
+		$this->state[ $j ][ $i ] = 0x80 ;
+		// zero tail
+		$remainder = 0 ;
+		++$i ;
+		while( $j < $this->columns ) {
+			while( $i < 8 ) {
+				$this->state[ $j ][ $i ] = 0 ;
+				$remainder += 8 ;
+				++$i ;
+			}
+			$i = 0 ;
+			++$j ;
+		}
+		// echo $remainder, "<br>" ;
+		if( $remainder < 96 ) {
+			$this->iv = $this->hash_v( $this->state ) ;
+			for( $j = 0; $j < $this->columns; ++$j ) {
+				$this->state[ $j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
+			}
+		}
+		$this->write_size( $message_bit_length ) ;
+		// return $this->matrix_to_hex( $this->state, "<br>" ) ; 
+		$this->iv = $this->hash_v( $this->state ) ;
+		return $this->reduce_ln() ;
+	}
     
     /**
      * Hash computing considering message to be HEX string
@@ -138,7 +195,7 @@ class Kupina {
                     if( $j >= $this->columns ) {
                         // block is full, proceed it
                         $this->iv = $this->hash_v( $this->state ) ;
-				$full_blocks++ ; if( $full_blocks == 1) $this->matrix_to_hex( $this->transform_0( $this->state ), "<br>" ) ; // return $this->matrix_to_hex( $this->iv, "<br>" ) ;		
+			//	$full_blocks++ ; if( $full_blocks == 1) $this->matrix_to_hex( $this->transform_0( $this->state ), "<br>" ) ; // return $this->matrix_to_hex( $this->iv, "<br>" ) ;		
 						$i = 0 ;
 						$j = 0 ;
                     }
@@ -181,14 +238,6 @@ class Kupina {
 		}
 		$this->iv = $this->hash_v( $this->state ) ;
 		return $this->reduce_ln() ;
-
-		/* return $this->matrix_to_hex( 
-            $this->state, 
-            "<br>" ) ; */
-        // var_dump( $this->state ) ;
-        /* return $this->matrix_to_hex( 
-            $this->transform_1( $this->state ), 
-            "<br>" ) ; */
     }
 
 	private function write_size( $bit_length ) {

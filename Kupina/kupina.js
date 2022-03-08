@@ -29,6 +29,8 @@ function Kupina( b ) {
 		else {
 			I.IV[0][0] = 0x80 ;
 		}
+		I.col = 0 ;
+		I.row = 0 ;
 	}
 
 	I.toString = function( matrix = I.G ) {
@@ -349,6 +351,72 @@ function Kupina( b ) {
 		// return I.toString() ;
 	}
 
+	I.appendByte = function( b ) {
+		I.G[ I.col ][ I.row ] = b ;
+		++I.row ;
+		if( I.row >= 8 ) {
+			I.row = 0 ;
+			++I.col ;
+			if( I.col >= I.c ) {
+				I.col = 0 ;
+				I.IV = I.hv() ;
+				for( j = 0; j < I.c; ++j ) {
+					I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
+				}
+			}
+		}
+	}
+
+	I.freeBits = function() {
+		return ( ( I.c - I.col - 1 ) * 8 + ( 8 - I.row ) ) * 8 ;
+	}
+
+	I.procUtf8 = function( message ) {
+		I.init() ;
+		let bitLength = 0 ;
+		let pos = 0 ;
+		i = j = 0 ;
+		while( pos < message.length ) {
+			let c = message.charCodeAt( pos ) ;
+			if( c < 0x80 ) {  // one-byte symbol
+				I.appendByte( c ) ;
+				bitLength += 8 ;
+			}
+			else if( c < 0x800 ) {  // two-byte symbol
+				I.appendByte( 0xc0 | ( c >> 6   ) ) ;
+				I.appendByte( 0x80 | ( c & 0x3F ) ) ;
+				bitLength += 16 ;
+			}
+			else if( c < 0xD800 || c >= 0xE000 ) {  // three-byte symbol
+				I.appendByte( 0xE0 | ( c >> 12 ) ) ;
+				I.appendByte( 0x80 | ( ( c >> 6 ) & 0x3F ) ) ;
+				I.appendByte( 0x80 | ( c & 0x3F ) ) ;
+				bitLength += 24 ;
+			}
+			else {  // surrogate pair - next symbol should be included
+				++pos ;
+				c = 0x10000 + ( ( ( c & 0x3FF ) << 10 ) | ( message.charCodeAt( pos ) & 0x3FF ) ) ;
+				I.appendByte( 0xF0 | ( c >> 18 ) ) ;
+				I.appendByte( 0x80 | ( ( c >> 12 ) & 0x3F ) ) ;
+				I.appendByte( 0x80 | ( ( c >> 6 ) & 0x3F ) ) ;
+				I.appendByte( 0x80 | ( c & 0x3F ) ) ;
+				bitLength += 32 ;
+			}
+			++pos ;
+		}
+		I.appendByte( 0x80 ) ;
+		if( I.freeBits() < 96 ) {
+			I.IV = I.hv() ;
+			for( j = 0; j < I.c; ++j ) {
+				I.G[ j ]  = [ 0, 0, 0, 0, 0, 0, 0, 0 ] ;
+			}
+		}
+		I.writeSize( bitLength ) ;
+		I.IV = I.hv() ;
+		return I.rln() ;
+		// return I.toString() ;
+	}
+
 	I.digest = function( message, mode = "HEX" ) {
 		if( mode == "HEX" ) {
 			I.init() ;	
@@ -357,6 +425,9 @@ function Kupina( b ) {
 		else if( mode == "STR" ) {
 			I.init() ;		
 			return I.procStr( message ) ;
+		}
+		else if( mode == "UTF8" ) {
+			return I.procUtf8( message ) ;
 		}
 		else {
 			throw "Mode '" + mode + "' unsupported" ;
